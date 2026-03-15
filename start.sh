@@ -1,6 +1,8 @@
 #!/bin/bash
+
 # SupoClip - Quick Start Script
 # This script helps you start SupoClip with a single command
+
 set -e  # Exit on error
 
 # Colors for output
@@ -14,49 +16,37 @@ echo "  SupoClip - AI Video Clipping Tool"
 echo "============================================"
 echo ""
 
-# Load .env file only if it exists (optional fallback for local dev)
-if [ -f .env ]; then
-    echo "Found .env file — loading it as fallback for any unset variables..."
-    # Export only variables that are not already set in the environment
-    while IFS='=' read -r key value; do
-        # Skip comments and blank lines
-        [[ "$key" =~ ^#.*$ ]] && continue
-        [[ -z "$key" ]] && continue
-        # Strip inline comments from value
-        value="${value%%#*}"
-        # Strip surrounding quotes
-        value="${value%\"}"
-        value="${value#\"}"
-        value="${value%\'}"
-        value="${value#\'}"
-        # Only set if not already exported in the environment
-        if [ -z "${!key}" ]; then
-            export "$key=$value"
-        fi
-    done < .env
+# Check if .env file exists
+if [ ! -f .env ]; then
+    echo -e "${RED}Error: .env file not found!${NC}"
     echo ""
-else
-    echo "No .env file found — reading entirely from environment variables."
-    echo "(This is expected in Railway / Render / Docker deployments.)"
+    echo "Please create a .env file with your API keys:"
+    echo "  1. Copy the template: cp .env.example .env"
+    echo "  2. Or use the provided .env file"
+    echo "  3. Edit .env and add your API keys:"
+    echo "     - ASSEMBLY_AI_API_KEY (required)"
+    echo "     - OPENAI_API_KEY or GOOGLE_API_KEY or ANTHROPIC_API_KEY"
+    echo "     - OR set LLM=ollama:<model> (optional: OLLAMA_BASE_URL, OLLAMA_API_KEY)"
     echo ""
+    exit 1
 fi
 
-# Check if required API keys are set in the environment
+# Check if required API keys are set
+source .env
+
 if [ -z "$ASSEMBLY_AI_API_KEY" ]; then
-    echo -e "${YELLOW}Warning: ASSEMBLY_AI_API_KEY is not set${NC}"
+    echo -e "${YELLOW}Warning: ASSEMBLY_AI_API_KEY is not set in .env${NC}"
     echo "Video transcription will not work without this key."
-    echo "Set it as an environment variable or in a .env file."
     echo ""
 fi
 
 if [ -z "$OPENAI_API_KEY" ] && [ -z "$GOOGLE_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY" ]; then
     if [[ "${LLM:-}" == ollama:* ]]; then
-        :  # Ollama doesn't need an API key
+        :
     else
-        echo -e "${YELLOW}Warning: No AI provider API key is set${NC}"
-        echo "You need at least one of: OPENAI_API_KEY, GOOGLE_API_KEY, ANTHROPIC_API_KEY"
-        echo "Or set LLM=ollama:<model> to use a local Ollama model."
-        echo ""
+    echo -e "${YELLOW}Warning: No AI provider API key is set in .env${NC}"
+    echo "You need at least one of: OPENAI_API_KEY, GOOGLE_API_KEY, ANTHROPIC_API_KEY, or LLM=ollama:<model>"
+    echo ""
     fi
 fi
 
@@ -86,23 +76,10 @@ fi
 echo -e "${GREEN}Starting SupoClip...${NC}"
 echo ""
 
-# Build and start containers, passing through all relevant env vars explicitly
+# Build and start containers
 echo "Building and starting Docker containers..."
 echo "(This may take a few minutes on the first run)"
 echo ""
-
-# Export all required variables so docker-compose can interpolate them
-# This ensures they are available even when not in a .env file
-export ASSEMBLY_AI_API_KEY="${ASSEMBLY_AI_API_KEY:-}"
-export OPENAI_API_KEY="${OPENAI_API_KEY:-}"
-export GOOGLE_API_KEY="${GOOGLE_API_KEY:-}"
-export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}"
-export LLM="${LLM:-}"
-export OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-}"
-export OLLAMA_API_KEY="${OLLAMA_API_KEY:-}"
-export DATABASE_URL="${DATABASE_URL:-}"
-export BETTER_AUTH_SECRET="${BETTER_AUTH_SECRET:-}"
-export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-}"
 
 $DOCKER_COMPOSE up -d --build
 
